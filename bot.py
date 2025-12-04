@@ -64,7 +64,7 @@ async def get_air_quality():
         soup = BeautifulSoup(r.text, 'lxml')
         text = soup.get_text(separator=" ")
 
-        # AQI
+        # AQI и уровень
         aqi_tag = soup.find("p", class_="aqi-value__value")
         level_tag = soup.find("span", class_="aqi-status__text")
 
@@ -80,6 +80,7 @@ async def get_air_quality():
         if level_tag:
             level = level_tag.get_text(strip=True)
 
+        # fallback по тексту: число + один из известных статусов
         if aqi is None or not level:
             match = re.search(
                 r"\b(\d{1,3})\b\s+"
@@ -90,23 +91,9 @@ async def get_air_quality():
                 aqi = int(match.group(1))
                 level = match.group(2)
 
-        if aqi is None or not level:
-            window = text
-            idx = text.find("Индекс качества воздуха")
-            if idx != -1:
-                window = text[idx : idx + 400]
-
-            aqi_match = re.search(r"\b(\d{1,3})\b", window)
-            if aqi_match and aqi is None:
-                aqi = int(aqi_match.group(1))
-
-            if not level:
-                level_match = re.search(
-                    r"(Хорош\w*|Средн\w*|Нездоров[^\s]*|Опасн\w*)",
-                    window,
-                )
-                if level_match:
-                    level = level_match.group(1)
+        # отбрасываем явно некорректные значения AQI
+        if aqi is not None and not (0 < aqi <= 500):
+            aqi = None
 
         aqi_str = str(aqi) if aqi is not None else "N/A"
         level_str = level if level else "Не удалось получить данные"
