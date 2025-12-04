@@ -64,10 +64,18 @@ async def get_air_quality():
         soup = BeautifulSoup(r.text, 'lxml')
         text = soup.get_text(separator=" ")
 
-        # ВРЕМЕННЫЙ ОТЛАДОЧНЫЙ ВЫВОД: первые 800 символов текста страницы
-        print("===== IQAir raw text (first 800 chars) =====")
-        print(text[:800])
-        print("===== END IQAir raw text =====")
+        # ВРЕМЕННЫЙ ОТЛАДОЧНЫЙ ВЫВОД: фрагмент вокруг блока с данными
+        idx = text.find("Источник данных")
+        if idx != -1:
+            start = max(0, idx - 200)
+            end = min(len(text), idx + 600)
+            print("===== IQAir data snippet =====")
+            print(text[start:end])
+            print("===== END IQAir data snippet =====")
+        else:
+            print("===== IQAir raw text (first 800 chars) =====")
+            print(text[:800])
+            print("===== END IQAir raw text =====")
 
         # AQI и уровень
         aqi_tag = soup.find("p", class_="aqi-value__value")
