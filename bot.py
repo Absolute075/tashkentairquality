@@ -15,7 +15,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 # ==================== ТОКЕН ====================
-BOT_TOKEN = "8330765864:AAGhzayAxSN0WrEa2XjWuNxVatq8w5NAVV8"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 # ================================================
 
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
@@ -66,10 +66,32 @@ async def get_air_quality():
 
         # AQI
         aqi_tag = soup.find("p", class_="aqi-value__value")
-        aqi = int(aqi_tag.get_text(strip=True).replace(",", "")) if aqi_tag else 386
-
         level_tag = soup.find("span", class_="aqi-status__text")
-        level = level_tag.get_text(strip=True) if level_tag else "Опасно"
+
+        aqi = None
+        level = None
+
+        if aqi_tag:
+            try:
+                aqi = int(aqi_tag.get_text(strip=True).replace(",", ""))
+            except Exception:
+                aqi = None
+
+        if level_tag:
+            level = level_tag.get_text(strip=True)
+
+        if aqi is None or not level:
+            match = re.search(
+                r"\b(\d{1,3})\b\s+"
+                r"(Хорошо|Средне|Нездорово для чувствительных групп|Нездорово|Очень нездорово|Опасно)",
+                text,
+            )
+            if match:
+                aqi = int(match.group(1))
+                level = match.group(2)
+
+        aqi_str = str(aqi) if aqi is not None else "N/A"
+        level_str = level if level else "Не удалось получить данные"
 
         # Регулярки с заменой на "мкг/м³" для читабельности
         pm25 = re.search(r'PM2[.,]5\s*[:–\-]?\s*([\d.,]+)\s*(µg/m|мкг/м)', text)
@@ -77,23 +99,23 @@ async def get_air_quality():
         o3   = re.search(r'O[3₃]\s*[:–\-]?\s*([\d.,]+)\s*(µg/m|мкг/м)', text)
         no2  = re.search(r'NO[2₂]\s*[:–\-]?\s*([\d.,]+)\s*(µg/m|мкг/м)', text)
 
-        pm25_val = pm25.group(1).replace(",", ".") + " мкг/м³" if pm25 else "268 мкг/м³"
-        pm10_val = pm10.group(1).replace(",", ".") + " мкг/м³" if pm10 else "399.7 мкг/м³"
-        o3_val   = o3.group(1).replace(",", ".") + " мкг/м³"   if o3   else "7 мкг/м³"
+        pm25_val = pm25.group(1).replace(",", ".") + " мкг/м³" if pm25 else "N/A"
+        pm10_val = pm10.group(1).replace(",", ".") + " мкг/м³" if pm10 else "N/A"
+        o3_val   = o3.group(1).replace(",", ".") + " мкг/м³"   if o3   else "N/A"
         no2_val  = no2.group(1).replace(",", ".") + " мкг/м³"  if no2  else "N/A"
 
         # Температура и влажность
-        temp = re.search(r'([\d.,]+)\s*°\s*C', text)
+        temp = re.search(r'([\d.,]+)\s*°', text)
         hum  = re.search(r'([\d.,]+)\s*%', text)
-        temp_val = temp.group(1) + " °C" if temp else "36 °C"
-        hum_val  = hum.group(1) + " %"   if hum  else "75 %"
+        temp_val = temp.group(1) + " °" if temp else "N/A"
+        hum_val  = hum.group(1) + " %"   if hum  else "N/A"
 
         updated = "обновлено недавно"
 
         return f"""
 <b>Качество воздуха в Ташкенте (IQAir)</b>
 
-<b>AQI: {aqi}</b> — {level}
+<b>AQI: {aqi_str}</b> — {level_str}
 Обновлено: {updated}
 
 🌫 PM2.5: <b>{pm25_val}</b>
@@ -112,15 +134,8 @@ async def get_air_quality():
         return """
 <b>Качество воздуха в Ташкенте (IQAir)</b>
 
-<b>AQI: 386</b> — Опасно
-Обновлено: 23:00, 01.12.2025
-
-🌫 PM2.5: <b>268 мкг/м³</b>
-🌀 PM10:  <b>399.7 мкг/м³</b>
-☁️ Озон:  <b>7 мкг/м³</b>
-🚗 NO₂:   <b>N/A</b>
-🌡️ Температура: <b>36 °C</b>
-💧 Влажность: <b>75 %</b>
+Не удалось получить живые данные с сайта IQAir.
+Попробуйте позже.
 
 Источник: iqair.com (реал-тайм)
 #воздух_ташкент
