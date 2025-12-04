@@ -90,14 +90,32 @@ async def get_air_quality():
                 aqi = int(match.group(1))
                 level = match.group(2)
 
+        if aqi is None or not level:
+            window = text
+            idx = text.find("Индекс качества воздуха")
+            if idx != -1:
+                window = text[idx : idx + 400]
+
+            aqi_match = re.search(r"\b(\d{1,3})\b", window)
+            if aqi_match and aqi is None:
+                aqi = int(aqi_match.group(1))
+
+            if not level:
+                level_match = re.search(
+                    r"(Хорош\w*|Средн\w*|Нездоров[^\s]*|Опасн\w*)",
+                    window,
+                )
+                if level_match:
+                    level = level_match.group(1)
+
         aqi_str = str(aqi) if aqi is not None else "N/A"
         level_str = level if level else "Не удалось получить данные"
 
         # Регулярки с заменой на "мкг/м³" для читабельности
-        pm25 = re.search(r'PM2[.,]5\s*[:–\-]?\s*([\d.,]+)\s*(µg/m|мкг/м)', text)
-        pm10 = re.search(r'PM10\s*[:–\-]?\s*([\d.,]+)\s*(µg/m|мкг/м)', text)
-        o3   = re.search(r'O[3₃]\s*[:–\-]?\s*([\d.,]+)\s*(µg/m|мкг/м)', text)
-        no2  = re.search(r'NO[2₂]\s*[:–\-]?\s*([\d.,]+)\s*(µg/m|мкг/м)', text)
+        pm25 = re.search(r'PM2[.,]5[^\d]{0,10}([\d.,]+)\s*(µg/m|мкг/м)', text)
+        pm10 = re.search(r'PM10[^\d]{0,10}([\d.,]+)\s*(µg/m|мкг/м)', text)
+        o3   = re.search(r'O[3₃][^\d]{0,10}([\d.,]+)\s*(µg/m|мкг/м)', text)
+        no2  = re.search(r'NO[2₂][^\d]{0,10}([\d.,]+)\s*(µg/m|мкг/м)', text)
 
         pm25_val = pm25.group(1).replace(",", ".") + " мкг/м³" if pm25 else "N/A"
         pm10_val = pm10.group(1).replace(",", ".") + " мкг/м³" if pm10 else "N/A"
@@ -107,8 +125,20 @@ async def get_air_quality():
         # Температура и влажность
         temp = re.search(r'([\d.,]+)\s*°', text)
         hum  = re.search(r'([\d.,]+)\s*%', text)
-        temp_val = temp.group(1) + " °" if temp else "N/A"
-        hum_val  = hum.group(1) + " %"   if hum  else "N/A"
+
+        # IQAir часто отдаёт температуру в градусах Фаренгейта без явного указания единиц,
+        # поэтому конвертируем F -> C для более привычного вывода
+        if temp:
+            try:
+                raw_temp_f = float(temp.group(1).replace(",", "."))
+                temp_c = (raw_temp_f - 32.0) * 5.0 / 9.0
+                temp_val = f"{round(temp_c)} °C"
+            except Exception:
+                temp_val = "N/A"
+        else:
+            temp_val = "N/A"
+
+        hum_val = hum.group(1) + " %" if hum else "N/A"
 
         updated = "обновлено недавно"
 
