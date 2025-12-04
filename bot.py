@@ -94,9 +94,10 @@ async def get_air_quality():
             level = level_tag.get_text(strip=True)
 
         # fallback по тексту: число + один из известных статусов
+        # пример: "77 AQI⁺ США Средне"
         if aqi is None or not level:
             match = re.search(
-                r"\b(\d{1,3})\b\s+"
+                r"\b(\d{1,3})\b[^\d]{0,40}"
                 r"(Хорошо|Средне|Нездорово для чувствительных групп|Нездорово|Очень нездорово|Опасно)",
                 text,
             )
